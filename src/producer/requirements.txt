@@ -1,0 +1,4 @@
+confluent-kafka
+jsonschema
+pandas
+faker
