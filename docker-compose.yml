@@ -15,9 +15,9 @@ services:
       timeout: 10s
       retries: 3
 
-  broker:
+  kafka:
     image: confluentinc/cp-kafka:7.5.3
-    container_name: broker
+    container_name: kafka
     depends_on:
         zookeeper:
           condition: service_healthy
@@ -27,9 +27,25 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: kafka_topic_init
+    depends_on:
+      - kafka
+    volumes:
+      - ./create_topic.sh:/create_topic.sh
+    entrypoint: ["/bin/bash", "/create_topic.sh"]
+
 
   redis:
     image: redis:latest
@@ -44,22 +60,12 @@ services:
 
   producer:
     container_name: producer
-    build: ./producer
+    build: ./src/producer
     depends_on:
-      - broker
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      KAFKA_BROKER: broker:9092
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
-
-  consumer:
-    container_name: consumer
-    build: ./consumer
-    depends_on:
-      - broker
-    environment:
-      KAFKA_BROKER: broker:9092
-    ports:
-      - "8001:8001" 
-    restart: unless-stopped
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    restart: on-failure
