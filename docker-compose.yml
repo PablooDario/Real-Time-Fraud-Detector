@@ -69,3 +69,15 @@ services:
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     restart: on-failure
+
+  consumer:
+    container_name: consumer
+    build: ./src/consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    restart: on-failure

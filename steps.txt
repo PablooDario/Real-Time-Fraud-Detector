@@ -1,4 +1,0 @@
-- Producer genera transacciones y las publica en el tópico transactions en Kafka.
-- Consumer consume mensajes, los preprocesa, pasa por un modelo de ML y decide si es fraude.
-- Si hay fraude, lo almacena en Redis para respuesta rápida o alertas.
-- Todo está orquestado con docker-compose.
