@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging 
+import requests
 
 from confluent_kafka import Consumer
 from confluent_kafka.admin import AdminClient
@@ -86,6 +87,30 @@ class TransactionConsumer():
         except Exception as e:
             logger.error(f"Error ensuring topic exists: {e}")
             raise
+    
+    def predict(self, tx_data):
+        try:
+            # Send transaction to ML model for prediction
+            response = requests.post("http://ml-serving:8000/predict", json=tx_data)
+            prediction = response.json()
+
+            logger.info(f"Prediction response: {prediction}")
+            enriched_tx = tx_data.copy()
+            enriched_tx["is_fraud_predicted"] = prediction.get("fraud_prediction")
+            enriched_tx["fraud_probability"] = prediction.get("probability")
+
+            # Produce to another store in DB and redis
+            logger.info(f"Enriched transaction: {enriched_tx}")
+
+        except requests.exceptions.ConnectionError:
+            logger.error("❌ Could not connect to ML service")
+        except requests.exceptions.Timeout:
+            logger.error("❌ ML service request timed out")
+        except ValueError as e:
+            logger.error(f"❌ Invalid JSON response: {e}")
+            logger.error(f"Response text: {response.text if 'response' in locals() else 'No response'}")
+        except Exception as e:
+            logger.error(f"❌ Prediction failed: {e}")
         
     def consume_messages(self):
         while True:
@@ -102,14 +127,16 @@ class TransactionConsumer():
 
             try:
                 # Try to parse and validate the message as JSON against the schema
-                data = json.loads(msg.value().decode("utf-8"))
-                validate(instance=data, schema=TRANSACTION_SCHEMA, format_checker=FormatChecker())
+                tx_data = json.loads(msg.value().decode("utf-8"))
+                validate(instance=tx_data, schema=TRANSACTION_SCHEMA, format_checker=FormatChecker())
+                
                 logger.info(f"Valid Message received from {msg.topic()} [{msg.partition()}]")
-                logger.info(f"Message: {data}")
+                logger.info(f"Message: {tx_data}")
+                # Predict whether the transaction is fraudulent
+                self.predict(tx_data)
+                
                 # Commit the offset for the message (mark it as processed)
                 self.consumer.commit(msg)
-
-                # Add logic to process the message
             
             except json.JSONDecodeError as e:
                 logger.warning(f"Malformed JSON: {e}")
