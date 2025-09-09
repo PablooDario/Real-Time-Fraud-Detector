@@ -46,7 +46,6 @@ services:
       - ./create_topic.sh:/create_topic.sh
     entrypoint: ["/bin/bash", "/create_topic.sh"]
 
-
   redis:
     image: redis:latest
     container_name: redis
@@ -57,6 +56,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+    # docker exec -it redis redis-cli
+    # LRANGE transactions 0 10
 
   producer:
     container_name: producer
@@ -91,3 +93,14 @@ services:
       - "8000:8000"
     depends_on:
       - consumer
+
+  dashboard:
+    build: ./src/dashboard
+    container_name: fraud-dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
