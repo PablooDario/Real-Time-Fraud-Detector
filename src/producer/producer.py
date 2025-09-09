@@ -28,6 +28,7 @@ TRANSACTION_SCHEMA = {
         "timestamp": {"type": "string", "format": "date-time"},
         "location": {"type": "string"},
         "is_fraud": {"type": "integer"},
+        "produced_at": {"type": "number"}
     },
     "required": ["transaction_id", "user_id", "amount",
                  "currency", "timestamp", "is_fraud"]
@@ -107,6 +108,7 @@ class TransactionProducer:
     def generate_transaction(self):
         """Generate a valid transaction."""
         transaction = transaction_generator()
+        transaction["produced_at"] = time.time()
         return transaction if self.validate_transaction(transaction) else None
     
 
