@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fraud Detection Dashboard</title>
+  <link rel="stylesheet" href="/src/dashboard/static/style.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+</head>
+<body>
+  <div class="container">
+      <div class="panel map-container">
+          <div class="stats">
+              <div class="stat-item"><span>Total Transactions:</span><span id="totalCount" class="stat-value">0</span></div>
+              <div class="stat-item"><span>Fraud Detected:</span><span id="fraudCount" class="stat-value fraud">0</span></div>
+              <div class="stat-item"><span>Fraud Rate:</span><span id="fraudRate" class="stat-value">0%</span></div>
+          </div>
+          <div id="map"></div>
+      </div>
+      
+      <div class="panel">
+          <h2>Recent Transactions</h2>
+          <div class="table-container">
+              <table id="transactionsTable">
+                  <thead>
+                      <tr>
+                          <th>User ID</th><th>Amount</th><th>Category</th><th>Location</th><th>Fraud</th>
+                      </tr>
+                  </thead>
+                  <tbody id="transactionsList"></tbody>
+              </table>
+          </div>
+      </div>
+
+      <div class="panel">
+          <h2>Fraud Alerts</h2>
+          <div class="table-container">
+              <table id="fraudsTable">
+                  <thead>
+                      <tr>
+                          <th>User ID</th><th>Amount</th><th>Category</th><th>Location</th><th>Probability</th>
+                      </tr>
+                  </thead>
+                  <tbody id="fraudsList"></tbody>
+              </table>
+          </div>
+      </div>
+  </div>
+
+  <script src="{{ url_for('static', path='script.js') }}"></script>
+</body>
+</html>
