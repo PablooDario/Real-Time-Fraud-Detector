@@ -3,6 +3,7 @@ import json
 import time
 import logging 
 import requests
+from redis import Redis
 
 from confluent_kafka import Consumer
 from confluent_kafka.admin import AdminClient
@@ -29,6 +30,7 @@ TRANSACTION_SCHEMA = {
         "timestamp": {"type": "string", "format": "date-time"},
         "location": {"type": "string"},
         "is_fraud": {"type": "integer"},
+        "produced_at": {"type": "number"}
     },
     "required": ["transaction_id", "user_id", "amount",
                  "currency", "timestamp", "is_fraud"]
@@ -62,6 +64,9 @@ class TransactionConsumer():
         except Exception as e:
             logger.error(f"Failed to initialize Confluent Kafka Consumer: {e}")
             raise
+        
+        # Initialize Redis connection
+        self.redis_client = Redis(host="redis", port=6379, decode_responses=True)
 
     def _wait_for_kafka(self, max_retries=30):
         """Wait for Kafka to be available."""
@@ -87,6 +92,13 @@ class TransactionConsumer():
         except Exception as e:
             logger.error(f"Error ensuring topic exists: {e}")
             raise
+        
+    def store_redis(self, tx):
+        try:
+            self.redis_client.lpush("transactions", json.dumps(tx))
+            logger.info(f"Stored transaction in Redis: {tx}")
+        except Exception as e:
+            logger.error(f"Failed to store transaction in Redis: {e}")
     
     def predict(self, tx_data):
         try:
@@ -98,9 +110,11 @@ class TransactionConsumer():
             enriched_tx = tx_data.copy()
             enriched_tx["is_fraud_predicted"] = prediction.get("fraud_prediction")
             enriched_tx["fraud_probability"] = prediction.get("probability")
-
-            # Produce to another store in DB and redis
+            
             logger.info(f"Enriched transaction: {enriched_tx}")
+            
+            # Store the enriched transaction in Redis
+            self.store_redis(enriched_tx)
 
         except requests.exceptions.ConnectionError:
             logger.error("❌ Could not connect to ML service")
@@ -130,7 +144,10 @@ class TransactionConsumer():
                 tx_data = json.loads(msg.value().decode("utf-8"))
                 validate(instance=tx_data, schema=TRANSACTION_SCHEMA, format_checker=FormatChecker())
                 
-                logger.info(f"Valid Message received from {msg.topic()} [{msg.partition()}]")
+                arrival_time = time.time()
+                latency_ms = (arrival_time - tx_data["produced_at"]) * 1000
+                
+                logger.info(f"Valid Message received from {msg.topic()} [{msg.partition()}], latency: {latency_ms:.2f} ms")
                 logger.info(f"Message: {tx_data}")
                 # Predict whether the transaction is fraudulent
                 self.predict(tx_data)
